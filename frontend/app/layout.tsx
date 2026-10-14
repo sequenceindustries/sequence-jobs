@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="site-header">
           <div className="container">
             <Link className="logo" href="/">Sequence<span>Jobs</span></Link>
-            <nav className="nav" aria-label="Main"><Link href="/jobs">All jobs</Link><Link href="/jobs?work_mode=remote">Remote</Link></nav>
+            <nav className="nav" aria-label="Main"><Link href="/jobs">All jobs</Link><Link href="/jobs?work_mode=remote">Remote</Link><Link href="/account">Account</Link></nav>
           </div>
         </header>
         <main id="main" className="container">{children}</main>
