@@ -48,7 +48,7 @@ def seed(url: str):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("cmd", choices=["migrate", "seed", "ingest", "sources", "serve"])
+    p.add_argument("cmd", choices=["migrate", "seed", "ingest", "sources", "serve", "reprocess", "create-admin", "purge", "run-alerts"])
     p.add_argument("slug", nargs="?")
     p.add_argument("--all", action="store_true")
     p.add_argument("--force", action="store_true")
@@ -68,6 +68,19 @@ def main():
         res = ingest.run_all(url, max_workers=Config.MAX_CONCURRENT_SOURCES, **kw) if a.all \
             else [ingest.run_source(url, a.slug, force=a.force, **kw)]
         print(json.dumps(res, indent=2, default=str))
+    elif a.cmd == "reprocess":
+        print("reprocessed", ingest.reprocess_derived(url), "jobs")
+    elif a.cmd == "create-admin":
+        import getpass, os
+        from app.services import accounts
+        pw = os.environ.get("ADMIN_PASSWORD") or getpass.getpass("Admin password: ")
+        print("created admin id", accounts.create_user(url, a.slug, pw, role="admin"))
+    elif a.cmd == "purge":
+        from app.services import retention
+        print(retention.purge_expired(url))
+    elif a.cmd == "run-alerts":
+        from app.services import alerts
+        print(alerts.run_alerts(url))
     elif a.cmd == "serve":
         from app import create_app
         create_app().run(host="127.0.0.1", port=5000, debug=False)

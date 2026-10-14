@@ -73,9 +73,25 @@ def test_result_explains_match_and_lists_unavailable_fields(db_url, source_facto
     assert r["match_reasons"] and "salary" in r["unavailable_fields"]
 
 
-def test_unsupported_filters_are_reported_not_silently_ignored(db_url, source_factory, conn):
+def test_experience_filters_use_derived_fields_and_label_unknowns(db_url, source_factory, conn):
+    load(db_url, source_factory, [
+        rec("1", title="Junior Designer", requirements_text="0-2 years experience"),
+        rec("2", title="Analyst", requirements_text="At least 5 years experience", employer="B"),
+        rec("3", title="Clerk", employer="C"),                               # states nothing
+    ])
+    out = search_jobs(conn, filters={"max_years_experience": 2})
+    got = {r["title"]: r for r in out["results"]}
+    assert set(got) == {"Junior Designer", "Clerk"}
+    assert "no experience requirement stated" in got["Clerk"]["match_reasons"]
+    assert "experience_requirement" in got["Clerk"]["unavailable_fields"]
+    assert {r["title"] for r in search_jobs(conn, filters={"experience_level": "entry"})["results"]} == {"Junior Designer"}
+    assert [r["title"] for r in search_jobs(conn, filters={"experience_level": "senior"})["results"]] == ["Analyst"]
+    assert out["unapplied_filters"] == []
+
+
+def test_skills_filter(db_url, source_factory, conn):
     sample(db_url, source_factory)
-    assert search_jobs(conn, filters={"experience_level": "entry"})["unapplied_filters"] == ["experience_level"]
+    assert [r["title"] for r in search_jobs(conn, filters={"skills": ["python"]})["results"]] == ["Python Developer"]
 
 
 def test_expired_and_linked_duplicates_not_listed(db_url, source_factory, conn):
@@ -227,6 +243,7 @@ def test_job_detail_has_provenance_and_not_employer_disclaimer(client):
 def test_production_hides_dev_data(db_url, source_factory):
     class Prod(TestConfig):
         ENV = "production"
+        SECRET_KEY = "prod-test-secret"
     sample(db_url, source_factory, is_dev_data=True)
     c = create_app(Prod).test_client()
     assert c.get("/api/jobs").get_json()["total"] == 0
@@ -235,14 +252,17 @@ def test_production_hides_dev_data(db_url, source_factory):
     assert c.get(f"/api/jobs/{jid}").status_code == 404
 
 
-def test_natural_search_503_when_ai_down_and_keyword_search_still_works(client):
-    r = client.post("/api/search/natural", json={"query": "python jobs in Cape Town"})
+def test_natural_search_503_when_ai_down_and_keyword_search_still_works(client, db_url):
+    from tests.conftest import make_client
+    ac = make_client(db_url)
+    r = ac.post("/api/search/natural", json={"query": "python jobs in Cape Town"})
     assert r.status_code == 503 and r.get_json()["error"] == "ai_unavailable"
     assert client.get("/api/jobs?q=python").get_json()["total"] == 1       # core search unaffected
 
 
-def test_natural_search_requires_query(client):
-    assert client.post("/api/search/natural", json={}).status_code == 400
+def test_natural_search_requires_query(client, db_url):
+    from tests.conftest import make_client
+    assert make_client(db_url).post("/api/search/natural", json={}).status_code == 400
 
 
 def test_filter_params_validated(client):
@@ -250,6 +270,7 @@ def test_filter_params_validated(client):
     assert j["total"] == 3                       # invalid filters ignored, no error, no injection
 
 
-def test_no_admin_routes_exposed(client):
-    for path in ("/api/admin", "/api/admin/sources", "/admin"):
-        assert client.get(path).status_code == 404
+def test_admin_routes_require_authentication(client):
+    assert client.get("/admin").status_code == 404                       # no such public route
+    for path in ("/api/admin/stats", "/api/admin/sources", "/api/admin/audit"):
+        assert client.get(path).status_code == 401

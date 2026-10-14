@@ -20,6 +20,7 @@ export type Job = {
   application_url: string | null;
   last_verified_at: string;
   is_dev_data: boolean;
+  status: "active" | "expired" | "closed" | "removed";
   source_name: string;
   match_reasons: string[];
   unavailable_fields: string[];

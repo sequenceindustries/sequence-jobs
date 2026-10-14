@@ -17,6 +17,12 @@ class Config:
     USER_AGENT = os.environ.get(
         "CRAWLER_USER_AGENT", "SequenceJobsBot/0.1 (+contact: set CRAWLER_CONTACT)"
     )
+    SECRET_KEY = os.environ.get("SECRET_KEY")               # REQUIRED in production
+    TRUST_PROXY = os.environ.get("TRUST_PROXY", "0") == "1"
+    SESSION_DAYS = int(os.environ.get("SESSION_DAYS", "14"))
+    CV_RETENTION_DAYS = int(os.environ.get("CV_RETENTION_DAYS", "30"))
+    CV_MAX_BYTES = int(os.environ.get("CV_MAX_BYTES", str(2 * 1024 * 1024)))
+    EMAIL_SENDER = os.environ.get("EMAIL_SENDER", "none")   # none | <future providers>
     HTTP_TIMEOUT_SECS = _int("HTTP_TIMEOUT_SECS", 20)
     HTTP_MAX_RETRIES = _int("HTTP_MAX_RETRIES", 3)
     MAX_CONCURRENT_SOURCES = _int("MAX_CONCURRENT_SOURCES", 3)

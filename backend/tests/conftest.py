@@ -48,3 +48,43 @@ def make_source(db_url, slug="src-a", connector="fixture", config=None, **over):
 @pytest.fixture()
 def source_factory(db_url):
     return lambda **kw: make_source(db_url, **kw)
+
+
+class AuthClient:
+    """Test client wrapper that carries the CSRF token automatically."""
+    def __init__(self, app):
+        self.c = app.test_client()
+        self.token = self.c.get("/api/auth/csrf").get_json()["csrf_token"]
+
+    def _h(self, kw):
+        kw.setdefault("headers", {})["X-CSRF-Token"] = self.token
+        return kw
+
+    def get(self, *a, **kw): return self.c.get(*a, **kw)
+    def post(self, *a, **kw): return self.c.post(*a, **self._h(kw))
+    def put(self, *a, **kw): return self.c.put(*a, **self._h(kw))
+    def patch(self, *a, **kw): return self.c.patch(*a, **self._h(kw))
+    def delete(self, *a, **kw): return self.c.delete(*a, **self._h(kw))
+
+    def login(self, email, password="correct-horse-battery"):
+        r = self.post("/api/auth/login", json={"email": email, "password": password})
+        assert r.status_code == 200, r.get_json()
+        self.token = r.get_json()["csrf_token"]
+        return r
+
+    def logout(self):
+        r = self.post("/api/auth/logout")
+        self.token = r.get_json()["csrf_token"]
+        return r
+
+    def register(self, email, password="correct-horse-battery"):
+        r = self.post("/api/auth/register", json={"email": email, "password": password})
+        assert r.status_code == 201, r.get_json()
+        self.token = r.get_json()["csrf_token"]
+        return r.get_json()["id"]
+
+
+def make_client(db_url, ai=None, config=TestConfig):
+    from app import create_app
+    config.SECRET_KEY = "test-secret"
+    return AuthClient(create_app(config, ai_gateway=ai))

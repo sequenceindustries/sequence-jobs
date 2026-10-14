@@ -11,17 +11,17 @@ from typing import Any, Optional
 PUBLIC_FIELDS = (
     "j.id, j.title, j.employer, j.location_text, j.city, j.province, j.work_mode, j.employment_type, "
     "j.salary_min, j.salary_max, j.salary_currency, j.salary_period, j.salary_raw, j.published_at, "
-    "j.closing_at, j.source_url, j.application_url, j.last_verified_at, j.status, j.is_dev_data, "
+    "j.closing_at, j.extracted_skills, j.min_experience_years, j.seniority, j.required_education, j.source_url, j.application_url, j.last_verified_at, j.status, j.is_dev_data, "
     "s.name AS source_name, s.slug AS source_slug"
 )
 
-# Filters we cannot honour yet because the data model has no reliable structured value for them.
-# They are reported back instead of silently ignored.
-NOT_YET_APPLICABLE = ("experience_level", "max_years_experience")
+# Filters we cannot honour because the data model has no reliable structured value for them are reported
+# back instead of silently ignored. (Empty now that experience/skills are derived; kept for new filters.)
+NOT_YET_APPLICABLE: tuple = ()
 
 
 def search_jobs(conn, q: Optional[str] = None, filters: Optional[dict[str, Any]] = None,
-                page: int = 1, per_page: int = 20, include_dev: bool = True) -> dict:
+                page: int = 1, per_page: int = 20, include_dev: bool = True, since=None) -> dict:
     filters = dict(filters or {})
     page, per_page = max(1, page), min(max(1, per_page), 50)
     where = ["j.status = 'active'", "j.canonical_job_id IS NULL"]
@@ -47,6 +47,24 @@ def search_jobs(conn, q: Optional[str] = None, filters: Optional[dict[str, Any]]
         where.append("j.employment_type ILIKE %s"); params.append(filters["employment_type"].replace("_", " "))
     if filters.get("posted_within_days"):
         where.append("j.published_at >= current_date - %s::int"); params.append(filters["posted_within_days"])
+    if filters.get("skills"):
+        where.append("j.extracted_skills && %s::text[]"); params.append(list(filters["skills"]))
+    if filters.get("max_years_experience") is not None:
+        # "doesn't require more than N years": a job that states no requirement is compatible, and is
+        # labelled as such in match_reasons / unavailable_fields rather than hidden.
+        where.append("(j.min_experience_years IS NULL OR j.min_experience_years <= %s)")
+        params.append(filters["max_years_experience"])
+    lvl = filters.get("experience_level")
+    if lvl == "entry":
+        where.append("(j.seniority = 'entry' OR j.min_experience_years <= 1)")
+    elif lvl == "junior":
+        where.append("(j.seniority IN ('entry','junior') OR j.min_experience_years <= 2)")
+    elif lvl == "mid":
+        where.append("(j.seniority IS NULL AND j.min_experience_years BETWEEN 2 AND 6)")
+    elif lvl == "senior":
+        where.append("(j.seniority = 'senior' OR j.min_experience_years >= 5)")
+    if since is not None:
+        where.append("j.first_seen_at > %s"); params.append(since)
     if filters.get("salary_min") and filters.get("salary_period"):
         # only rows that STATE a salary in the same period can match; unknown never matches
         where.append("j.salary_period = %s AND coalesce(j.salary_max, j.salary_min) >= %s")
@@ -72,8 +90,13 @@ def search_jobs(conn, q: Optional[str] = None, filters: Optional[dict[str, Any]]
         if terms: matched.append("keywords matched title/employer/location/description")
         if filters.get("province"): matched.append(f"province = {r['province']}")
         if filters.get("work_mode"): matched.append(f"work mode = {r['work_mode']}")
+        if filters.get("skills"): matched.append("skills: " + ", ".join(sorted(set(filters["skills"]) & set(r["extracted_skills"]))))
+        if filters.get("max_years_experience") is not None:
+            matched.append("no experience requirement stated" if r["min_experience_years"] is None
+                           else f"requires {r['min_experience_years']} year(s), within your limit")
+        if filters.get("experience_level"): matched.append(f"fits {filters['experience_level']} level (from title/years stated)")
         if filters.get("salary_min"): matched.append(f"stated salary meets {filters['salary_min']:.0f} per {filters['salary_period']}")
-        unavailable = [f for f, v in (("salary", r["salary_min"]), ("closing_date", r["closing_at"]),
+        unavailable = [f for f, v in (("salary", r["salary_min"]), ("closing_date", r["closing_at"]), ("experience_requirement", r["min_experience_years"]),
                                       ("employer", r["employer"]), ("work_mode", r["work_mode"])) if v is None]
         r.pop("rank", None)
         results.append({**r, "match_reasons": matched, "unavailable_fields": unavailable})

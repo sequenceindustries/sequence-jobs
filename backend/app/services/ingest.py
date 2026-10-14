@@ -20,6 +20,7 @@ from ..connectors.registry import get_connector_class
 from ..db import connect
 from . import dedup
 from .normalise import changed_fields, content_hash
+from .skills import detect_education, detect_seniority, extract_skills, parse_min_experience_years
 
 log = logging.getLogger("ingest")
 
@@ -53,6 +54,20 @@ def review_reasons(rec: JobRecord) -> list[str]:
     return sorted(set(reasons))
 
 
+def derive(rec_like) -> dict:
+    """Deterministic derived fields from stored text. Not AI; recomputed by `manage.py reprocess`."""
+    g = (lambda k: rec_like[k]) if isinstance(rec_like, dict) else (lambda k: getattr(rec_like, k))
+    text = " ".join(filter(None, [g("title"), g("description"), g("requirements_text"),
+                                  g("qualifications_text"), g("experience_text")]))
+    return {
+        "extracted_skills": extract_skills(text),
+        "min_experience_years": parse_min_experience_years(g("requirements_text"), g("experience_text"),
+                                                           g("description")),
+        "seniority": detect_seniority(g("title")),
+        "required_education": detect_education(g("requirements_text"), g("qualifications_text")),
+    }
+
+
 def _validate(rec: JobRecord) -> None:
     if not rec.source_job_id or not rec.title or not rec.title.strip():
         raise ValueError("record needs source_job_id and title")
@@ -79,9 +94,11 @@ def _store(conn, source: dict, rec: JobRecord, run_started: datetime) -> str:
 
     if existing is None:
         link = dedup.find_canonical(conn, _row_dict(rec, source["id"]))
-        cols = JOB_COLS + ["source_id", "source_job_id", "content_hash", "is_dev_data",
-                           "needs_review", "review_reasons", "canonical_job_id", "dup_relation"]
-        vals = [getattr(rec, c) for c in JOB_COLS] + [
+        d = derive(rec)
+        dcols = list(d)
+        cols = JOB_COLS + dcols + ["source_id", "source_job_id", "content_hash", "is_dev_data",
+                                   "needs_review", "review_reasons", "canonical_job_id", "dup_relation"]
+        vals = [getattr(rec, c) for c in JOB_COLS] + [d[c] for c in dcols] + [
             source["id"], rec.source_job_id, chash, source["is_dev_data"], bool(reasons), reasons,
             link["canonical_job_id"] if link else None, link["relation"] if link else None,
         ]
@@ -106,13 +123,15 @@ def _store(conn, source: dict, rec: JobRecord, run_started: datetime) -> str:
         return "unchanged"
 
     fields = changed_fields(existing, rec)
-    sets = ", ".join(f"{c} = %s" for c in JOB_COLS)
+    d = derive(rec)
+    cols = JOB_COLS + list(d)
+    sets = ", ".join(f"{c} = %s" for c in cols)
     conn.execute(
         f"UPDATE jobs SET {sets}, content_hash = %s, last_seen_at = %s, last_verified_at = %s, "
         "status = 'active', needs_review = %s, review_reasons = %s, "
         "ai_analysis_status = CASE WHEN ai_analysis_status = 'complete' THEN 'pending' ELSE ai_analysis_status END "
         "WHERE id = %s",
-        [getattr(rec, c) for c in JOB_COLS] + [chash, now, now, bool(reasons), reasons, existing["id"]],
+        [getattr(rec, c) for c in JOB_COLS] + [d[c] for c in d] + [chash, now, now, bool(reasons), reasons, existing["id"]],
     )
     conn.execute(
         "INSERT INTO job_versions (job_id, content_hash, changed_fields, snapshot) VALUES (%s,%s,%s,%s)",
@@ -237,3 +256,20 @@ def run_all(db_url: str, **kw) -> list[dict]:
             except Exception as e:                   # even an unexpected crash is contained per source
                 out.append({"source": s, "status": "failed", "error": str(e)})
         return out
+
+
+def reprocess_derived(db_url: str) -> int:
+    """Recompute derived fields for every job (e.g. after a taxonomy change). Returns rows updated."""
+    n = 0
+    with connect(db_url) as conn:
+        rows = conn.execute("SELECT id, title, description, requirements_text, qualifications_text, "
+                            "experience_text FROM jobs").fetchall()
+        for r in rows:
+            d = derive(r)
+            conn.execute("UPDATE jobs SET extracted_skills = %s, min_experience_years = %s, seniority = %s, "
+                         "required_education = %s WHERE id = %s",
+                         (d["extracted_skills"], d["min_experience_years"], d["seniority"],
+                          d["required_education"], r["id"]))
+            n += 1
+        conn.commit()
+    return n

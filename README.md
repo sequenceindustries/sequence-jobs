@@ -26,3 +26,8 @@ cd ../backend && TEST_DATABASE_URL=postgresql://USER@HOST/sequence_jobs_test pyt
 
 ## Needs from you (nothing has been purchased or provisioned)
 AI provider + API key + approved daily budget · verification of gov.za terms · domain/GitHub repo/Railway project · email sender for alerts · ad provider account.
+
+## Status (honest)
+Implemented and covered by tests (182 backend tests; frontend typechecks and builds): ingestion framework with source gate, dedup, search, auth, CV upload/parsing, deterministic matching, recommendations, applications tracker, alerts + email outbox, AI gateway, AI workflows (CV improvement, cover letter, interview prep, assistant, export) against a **fake** provider, admin API, SEO files.
+
+NOT done / not possible without you: no real AI provider adapter (needs your approved provider + key + budget); no real job source enabled (only synthetic dev data; DPSA is restricted pending GCIS permission); no email provider (alerts queue as `not_configured`); no deployment, repo, domain or paid service; JobPosting JSON-LD positive path is untested (no real data); no admin UI or authenticated frontend pages yet (API only); no broken-link checker; no ads; no payments by design.

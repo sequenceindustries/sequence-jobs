@@ -18,7 +18,7 @@ EXPERIENCE_LEVELS = {"entry", "junior", "mid", "senior"}
 PERIODS = {"month", "year", "hour"}
 SYSTEM = (
     "Translate a South African job-search request into JSON filters. Output ONLY JSON with keys: "
-    "keywords (list of strings), province (one of the nine SA provinces or null), city (string or null), "
+    "keywords (list of strings), skills (list of skill names, optional), province (one of the nine SA provinces or null), city (string or null), "
     "work_mode (remote|hybrid|on_site|null), employment_type (full_time|part_time|contract|internship|"
     "temporary|graduate|null), experience_level (entry|junior|mid|senior|null), max_years_experience "
     "(integer or null), salary_min (number or null), salary_period (month|year|hour|null), "
@@ -33,6 +33,12 @@ def validate_filters(raw: dict[str, Any]) -> dict[str, Any]:
     if isinstance(kws, list):
         clean = [re.sub(r"[^\w\s\-+#.]", "", str(k)).strip()[:40] for k in kws][:8]
         out["keywords"] = [k for k in clean if k]
+    sk = raw.get("skills")
+    if isinstance(sk, list):
+        from ..services.skills import TAXONOMY
+        out["skills"] = [x.lower() for x in sk if isinstance(x, str) and x.lower() in TAXONOMY][:10]
+        if not out["skills"]:
+            del out["skills"]
     prov = raw.get("province")
     if isinstance(prov, str) and prov.lower() in PROVINCES:
         out["province"] = PROVINCES[prov.lower()]
