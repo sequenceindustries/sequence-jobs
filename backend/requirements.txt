@@ -1,0 +1,7 @@
+flask>=3.1
+psycopg[binary]>=3.2
+requests>=2.32
+pdfminer.six>=20240706
+python-dotenv>=1.0
+gunicorn>=22.0
+pytest>=8.0
