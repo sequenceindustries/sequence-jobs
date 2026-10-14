@@ -16,10 +16,9 @@ FIXTURE = ROOT / "fixtures" / "dev_jobs.json"
 SEED_SOURCES = [
     dict(slug="dpsa-circular", name="Public Service Vacancy Circular (DPSA via gov.za)",
          website="https://www.gov.za", connector="dpsa_circular", access_method="public_notice_pdf",
-         terms_status="unverified", republication="link_only", enabled=False, is_dev_data=False,
+         terms_status="restricted", republication="link_only", enabled=False, is_dev_data=False,
          min_interval_secs=21600,
-         terms_notes="Official weekly PDF. gov.za robots.txt and reuse terms NOT yet verified; the build "
-                     "sandbox could not reach gov.za. Verify before enabling. Config needs pdf_urls.",
+         terms_notes="Official weekly PDF. Verified 14 Oct 2026: robots.txt does not disallow /sites/default/files/, BUT gov.za terms allow copying/distribution only for non-commercial purposes; commercial use needs prior written permission from GCIS (electronic@gcis.gov.za) and the notice '(c) GCIS2018: ALL RIGHTS RESERVED'. Linking is welcomed; framing is prohibited. Do not enable until written permission is on file.",
          config={"pdf_urls": [], "circular_refs": {}}),
     dict(slug="dev-fixture", name="DEV FIXTURE (synthetic data)", website=None, connector="fixture",
          access_method="local_file", terms_status="verified_permitted", republication="full",

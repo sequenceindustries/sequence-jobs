@@ -138,8 +138,10 @@ def run_source(db_url: str, source_slug: str, http: Optional[HttpClient] = None,
         if source is None:
             raise KeyError(f"unknown source '{source_slug}'")
 
-        if source["terms_status"] == "prohibited":
-            return {"source": source_slug, "status": "skipped", "reason": "terms prohibit collection"}
+        # Legal gate: not bypassed by force. 'restricted' = permission/licence needed before use.
+        if source["terms_status"] in ("prohibited", "restricted"):
+            return {"source": source_slug, "status": "skipped",
+                    "reason": f"terms {source['terms_status']}: collection not permitted"}
         if not source["enabled"] and not force:
             return {"source": source_slug, "status": "skipped", "reason": "source disabled"}
         if source["last_run_at"] and not force:

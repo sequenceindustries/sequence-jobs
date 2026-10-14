@@ -333,3 +333,11 @@ def test_unverifiable_robots_means_do_not_crawl():
     s = FakeSession([FakeResp(200, "x")], robots=(403, ""))
     with pytest.raises(RobotsDisallowed):
         HttpClient("ua", session=s).get("https://e.invalid/jobs")
+
+
+def test_restricted_source_is_never_fetched_even_when_forced(db_url, source_factory):
+    source_factory(slug="needs-permission", connector="always_broken", terms_status="restricted")
+    r = ingest.run_source(db_url, "needs-permission", force=True)
+    assert r["status"] == "skipped" and "restricted" in r["reason"]
+    with connect(db_url) as c:
+        assert c.execute("SELECT count(*) n FROM ingestion_runs").fetchone()["n"] == 0
