@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JobActions } from "@/components/JobActions";
+import { JobTools } from "@/components/JobTools";
 import { notFound } from "next/navigation";
 import { formatDate, formatSalary, getJob, type JobDetail } from "@/lib/api";
 
@@ -73,7 +74,7 @@ export default async function JobPage({ params }: { params: P }) {
       <a className="btn apply" href={applyHref} target="_blank" rel="noopener noreferrer nofollow">
         {j.application_url ? "Apply at the original source" : "View the original listing"}
       </a>
-      {j.status === "active" && <JobActions jobId={j.id} jobTitle={j.title} />}
+      {j.status === "active" && <><JobActions jobId={j.id} jobTitle={j.title} /><JobTools jobId={j.id} /></>}
       <dl className="facts">
         <div><dt>Salary</dt><dd>{salary ?? <Unknown />}</dd></div>
         <div><dt>Employment type</dt><dd>{j.employment_type ?? <Unknown />}</dd></div>

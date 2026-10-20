@@ -48,7 +48,7 @@ def seed(url: str):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("cmd", choices=["migrate", "seed", "ingest", "sources", "serve", "reprocess", "create-admin", "purge", "run-alerts"])
+    p.add_argument("cmd", choices=["migrate", "seed", "ingest", "sources", "serve", "reprocess", "create-admin", "purge", "run-alerts", "check-links"])
     p.add_argument("slug", nargs="?")
     p.add_argument("--all", action="store_true")
     p.add_argument("--force", action="store_true")
@@ -75,6 +75,9 @@ def main():
         from app.services import accounts
         pw = os.environ.get("ADMIN_PASSWORD") or getpass.getpass("Admin password: ")
         print("created admin id", accounts.create_user(url, a.slug, pw, role="admin"))
+    elif a.cmd == "check-links":
+        from app.services import linkcheck
+        print(linkcheck.check_links(url))
     elif a.cmd == "purge":
         from app.services import retention
         print(retention.purge_expired(url))
