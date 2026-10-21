@@ -1,0 +1,70 @@
+{
+  "$schema": "https://railway.app/schema/v1/railway-schema.json",
+  "services": {
+    "postgres": {
+      "image": "postgres:16-alpine",
+      "variables": {
+        "POSTGRES_USER": "sequence_jobs",
+        "POSTGRES_DB": "sequence_jobs_prod",
+        "POSTGRES_PASSWORD": "${{ secrets.POSTGRES_PASSWORD }}"
+      },
+      "volumes": [
+        {
+          "name": "postgres-data",
+          "mount": "/var/lib/postgresql/data"
+        }
+      ],
+      "port": 5432,
+      "tcp": true
+    },
+    "backend": {
+      "dockerfile": "backend/Dockerfile",
+      "watch": ["backend/app", "backend/migrations"],
+      "variables": {
+        "PYTHONUNBUFFERED": "1",
+        "FLASK_ENV": "production",
+        "DATABASE_URL": "${{ services.postgres.DATABASE_URL }}",
+        "API_URL": "https://${{ railway.domain }}",
+        "CRAWLER_USER_AGENT": "SequenceJobsBot/0.1 (+contact: hello@sequencejobs.co.za)",
+        "AI_PROVIDER": "groq",
+        "AI_DAILY_BUDGET_USD": "10"
+      },
+      "secrets": {
+        "GROQ_API_KEY": "",
+        "SECRET_KEY": ""
+      },
+      "port": 8000,
+      "healthcheck": {
+        "test": ["CMD", "curl", "-f", "http://localhost:8000/health"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3
+      }
+    },
+    "frontend": {
+      "dockerfile": "frontend/Dockerfile",
+      "watch": ["frontend/app", "frontend/components", "frontend/lib"],
+      "variables": {
+        "NODE_ENV": "production",
+        "API_URL": "https://${{ railway.domain }}/api"
+      },
+      "port": 3000,
+      "healthcheck": {
+        "test": ["CMD", "curl", "-f", "http://localhost:3000"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3
+      }
+    }
+  },
+  "domains": [
+    {
+      "name": "${{ env.CUSTOM_DOMAIN }}",
+      "service": "frontend"
+    },
+    {
+      "name": "api.${{ env.CUSTOM_DOMAIN }}",
+      "service": "backend"
+    }
+  ]
+}

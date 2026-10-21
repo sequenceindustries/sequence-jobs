@@ -1,9 +1,51 @@
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
+# Environment
 .env
+.env.*.local
+.venv/
+venv/
 node_modules/
-frontend/.next/
-frontend/next-env.d.ts
-*.tsbuildinfo
+.next/
+.vercel/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temp files
+.tmp/
+temp/
+*.temp
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build artifacts
+*.pyc
+__pycache__/
+*.egg-info/
+.mypy_cache/
+
+# Production
+.next/out/
+
+# Secrets (never commit these!)
+.env
+.env.production
+railway-env.yml

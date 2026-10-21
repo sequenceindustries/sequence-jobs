@@ -10,25 +10,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from ..db import connect
+from .email import EmailSender, NotConfigured
 from .search import search_jobs
 
 FREQ = {"instant": timedelta(0), "daily": timedelta(hours=23), "weekly": timedelta(days=6, hours=23)}
 MAX_PER_RUN = 200
 MAX_EMAIL_ATTEMPTS = 3
-
-
-class NotConfigured(Exception):
-    pass
-
-
-class EmailSender:
-    def send(self, to: str, subject: str, body: str) -> None:       # pragma: no cover - interface
-        raise NotImplementedError
-
-
-class NullSender(EmailSender):
-    def send(self, to, subject, body):
-        raise NotConfigured("No email provider configured")
 
 
 def validate_alert_filters(raw: dict) -> dict:

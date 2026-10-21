@@ -22,7 +22,10 @@ class Config:
     SESSION_DAYS = int(os.environ.get("SESSION_DAYS", "14"))
     CV_RETENTION_DAYS = int(os.environ.get("CV_RETENTION_DAYS", "30"))
     CV_MAX_BYTES = int(os.environ.get("CV_MAX_BYTES", str(2 * 1024 * 1024)))
-    EMAIL_SENDER = os.environ.get("EMAIL_SENDER", "none")   # none | <future providers>
+    EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "none")  # none | resend | sendgrid | mailgun
+    EMAIL_API_KEY = os.environ.get("EMAIL_API_KEY")            # API key for the email provider
+    EMAIL_FROM_ADDRESS = os.environ.get("EMAIL_FROM_ADDRESS")  # Sender email address
+    EMAIL_MAILGUN_DOMAIN = os.environ.get("EMAIL_MAILGUN_DOMAIN")  # Mailgun domain (mailgun only)
     HTTP_TIMEOUT_SECS = _int("HTTP_TIMEOUT_SECS", 20)
     HTTP_MAX_RETRIES = _int("HTTP_MAX_RETRIES", 3)
     MAX_CONCURRENT_SOURCES = _int("MAX_CONCURRENT_SOURCES", 3)

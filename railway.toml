@@ -1,0 +1,45 @@
+# Railway Deployment Configuration for Sequence Jobs
+# This file defines the services that will be deployed to Railway
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "./Dockerfile.backend"
+
+[deploy]
+startCommand = "gunicorn -b 0.0.0.0:$PORT app:create_app()"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "backend"
+buildCommand = ""
+startCommand = "gunicorn -b 0.0.0.0:$PORT app:create_app() --timeout 120 --workers 4"
+dockerfile = "backend/Dockerfile"
+root = "backend"
+healthcheck = { cmd = "curl -f http://localhost:8000/health || exit 1", interval = 30, timeout = 10, retries = 3 }
+
+[services.variables]
+PYTHONUNBUFFERED = "1"
+FLASK_ENV = "production"
+
+[[services]]
+name = "frontend"
+buildCommand = "npm install && npm run build"
+startCommand = "npm run start"
+dockerfile = "frontend/Dockerfile"
+root = "frontend"
+healthcheck = { cmd = "curl -f http://localhost:3000 || exit 1", interval = 30, timeout = 10, retries = 3 }
+
+[services.variables]
+NODE_ENV = "production"
+
+# Database service is provisioned separately via Railway console
+[[services]]
+name = "postgres"
+image = "postgres:16-alpine"
+isPrivate = false
+
+[postgres.variables]
+POSTGRES_USER = "sequence_jobs"
+POSTGRES_PASSWORD = "${{ secrets.POSTGRES_PASSWORD }}"
+POSTGRES_DB = "sequence_jobs_prod"

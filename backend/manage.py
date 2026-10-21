@@ -48,7 +48,7 @@ def seed(url: str):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("cmd", choices=["migrate", "seed", "ingest", "sources", "serve", "reprocess", "create-admin", "purge", "run-alerts", "check-links"])
+    p.add_argument("cmd", choices=["migrate", "seed", "ingest", "sources", "serve", "reprocess", "create-admin", "purge", "run-alerts", "check-links", "test-email"])
     p.add_argument("slug", nargs="?")
     p.add_argument("--all", action="store_true")
     p.add_argument("--force", action="store_true")
@@ -83,7 +83,29 @@ def main():
         print(retention.purge_expired(url))
     elif a.cmd == "run-alerts":
         from app.services import alerts
-        print(alerts.run_alerts(url))
+        from app.services.email import get_email_sender
+        try:
+            sender = get_email_sender()
+        except Exception:
+            # No email provider configured - alerts will still run but emails won't be sent
+            sender = None
+        result = alerts.run_alerts(url, sender=sender)
+        print(json.dumps(result, indent=2, default=str))
+    elif a.cmd == "test-email":
+        from app.services.email import get_email_sender
+        import os
+        to = a.slug or os.environ.get("TEST_EMAIL_TO")
+        if not to:
+            print("Usage: python manage.py test-email <recipient@example.com>")
+            print("   or: TEST_EMAIL_TO=recipient@example.com python manage.py test-email")
+            sys.exit(1)
+        try:
+            sender = get_email_sender()
+            sender.send(to, "Sequence Jobs Test Email", "This is a test email from Sequence Jobs.\n\nIf you received this, your email provider is configured correctly.")
+            print(f"Test email sent to {to}")
+        except Exception as e:
+            print(f"Failed to send test email: {e}", file=sys.stderr)
+            sys.exit(1)
     elif a.cmd == "serve":
         from app import create_app
         create_app().run(host="127.0.0.1", port=5000, debug=False)

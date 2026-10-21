@@ -32,12 +32,12 @@ cd ../backend && TEST_DATABASE_URL=postgresql://USER@HOST/sequence_jobs_test pyt
 `backend/app/connectors` source connectors · `services` normalise/dedup/ingest/search · `ai` provider-independent gateway · `migrations` SQL · `frontend` Next.js · `docs` sources + decisions.
 
 ## Needs from you (nothing has been purchased or provisioned)
-Groq API key (free tier available, 25 req/min; sign up at https://console.groq.com) · verification of gov.za terms + GCIS permission for DPSA · domain/GitHub repo/Railway project · email sender for alerts · ad provider account.
+Groq API key (free tier available, 25 req/min; sign up at https://console.groq.com) · email provider for alerts (Resend recommended, 100 emails/day free; see `docs/EMAIL_SETUP.md`) · verification of gov.za terms + GCIS permission for DPSA · domain/GitHub repo/Railway project · ad provider account.
 
 ## Status (honest)
-Implemented and covered by tests (196 backend tests; frontend typechecks and builds): ingestion framework with source gate, dedup, search, auth, CV upload/parsing, deterministic matching, recommendations, applications tracker, alerts + email outbox, AI gateway, AI workflows (CV improvement, cover letter, interview prep, assistant, export), **Groq provider integration** (ready to use with free or paid tier), admin API, SEO files.
+Implemented and covered by tests (196+ backend tests; frontend typechecks and builds): ingestion framework with source gate, dedup, search, auth, CV upload/parsing, deterministic matching, recommendations, applications tracker, alerts + email outbox with **3 free email providers** (Resend, SendGrid, Mailgun), AI gateway, AI workflows (CV improvement, cover letter, interview prep, assistant, export), **Groq provider integration** (ready to use with free or paid tier), admin API, SEO files.
 
-NOT done / not possible without you: no real job source enabled (only synthetic dev data; DPSA is restricted pending GCIS permission); no email provider (alerts queue as `not_configured`); no deployment, repo, domain or paid service; JobPosting JSON-LD positive path is untested (no real data); no ads; no payments by design.
+NOT done / not possible without you: no real job source enabled (only synthetic dev data; DPSA is restricted pending GCIS permission); no deployment, repo, domain or paid service; JobPosting JSON-LD positive path is untested (no real data); no ads; no payments by design.
 
 Frontend now includes login/register, an account area (recommendations, saved, tracker, alerts, CVs, profile), job-page save/track/match actions and a basic admin dashboard (`/admin`), served through a same-origin `/api` rewrite. Smoke-tested in a real browser (register, CV upload, profile, recommendations, match, track; admin denied for non-admins). AI-feature screens are not built yet because AI is not enabled.
 
@@ -59,3 +59,28 @@ The project includes a provider-independent AI gateway (`backend/app/ai/provider
 - Includes 7 unit tests covering success, errors, and budget enforcement
 
 To use: sign up at https://console.groq.com, grab your API key, then set the env vars above and restart the backend.
+
+## Email Alerts
+
+The project includes a provider-agnostic email system with adapters for 3 free email services optimized for South Africa:
+
+**Resend** (recommended): 100 emails/day, modern API, best for startups.
+```bash
+export EMAIL_PROVIDER=resend
+export EMAIL_API_KEY=re_YOUR_API_KEY
+export EMAIL_FROM_ADDRESS=noreply@your-domain.com
+python manage.py test-email your-test@example.com
+```
+
+**SendGrid** and **Mailgun** also supported. See `docs/EMAIL_SETUP.md` for detailed setup guides, domain verification, and troubleshooting.
+
+To run alerts and send queued emails:
+```bash
+python manage.py run-alerts
+```
+
+Email system features:
+- No-op NullSender when not configured (alerts still run, emails stay queued)
+- Automatic retry on failure (up to 3 attempts)
+- Error logging and delivery tracking in `email_outbox` table
+- Provider-agnostic architecture: swappable backends without code changes
