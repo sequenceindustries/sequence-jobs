@@ -19,9 +19,15 @@ def create_app(config: type[Config] | None = None, ai_gateway=None) -> Flask:
                       PERMANENT_SESSION_LIFETIME=timedelta(days=cfg.SESSION_DAYS),
                       MAX_CONTENT_LENGTH=cfg.CV_MAX_BYTES + 4096)
 
-    from .ai.provider import AIGateway
-    app.config["AI"] = ai_gateway or AIGateway(
-        cfg.DATABASE_URL, None, cfg.AI_DAILY_BUDGET_USD, cfg.AI_MAX_INPUT_TOKENS, cfg.AI_MAX_OUTPUT_TOKENS)
+    from .ai.provider import AIGateway, NullProvider
+    if not ai_gateway:
+        provider = None
+        if cfg.AI_PROVIDER == "groq" and cfg.AI_API_KEY:
+            from .ai.providers.groq import GroqProvider
+            provider = GroqProvider(cfg.AI_API_KEY)
+        ai_gateway = AIGateway(
+            cfg.DATABASE_URL, provider, cfg.AI_DAILY_BUDGET_USD, cfg.AI_MAX_INPUT_TOKENS, cfg.AI_MAX_OUTPUT_TOKENS)
+    app.config["AI"] = ai_gateway
 
     from .api import bp
     from .auth import bp as auth_bp, csrf_guard
