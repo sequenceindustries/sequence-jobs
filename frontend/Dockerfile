@@ -34,10 +34,9 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.ts ./
 
-# Create non-root user
-RUN addgroup -g 1000 appuser && adduser -D -u 1000 -G appuser appuser
-RUN chown -R appuser:appuser /app
-USER appuser
+# Use the existing node user (uid 1000) instead of creating a new one
+RUN chown -R node:node /app
+USER node
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
